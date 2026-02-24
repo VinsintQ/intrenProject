@@ -45,6 +45,9 @@ public class User {
     @Column(nullable = false)
     private boolean isActive = true;
 
+    @Column(nullable = false)
+    private Double balance = 0.0;
+
     @JsonIgnore
     public String getPassword(){
         return password;

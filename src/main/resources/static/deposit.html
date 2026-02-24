@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deposit Money</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        #card-element {
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+        }
+
+        #card-element.StripeElement--focus {
+            border-color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .success {
+            color: #27ae60;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💳 Deposit Money</h1>
+        <p class="subtitle">Add funds to your account securely</p>
+
+        <form id="payment-form">
+            <div class="form-group">
+                <label for="amount">Amount</label>
+                <input type="number" id="amount" name="amount" min="1" step="0.01" required placeholder="100.00">
+            </div>
+
+            <div class="form-group">
+                <label for="currency">Currency</label>
+                <select id="currency" name="currency" required>
+                    <option value="usd">USD - US Dollar</option>
+                    <option value="eur">EUR - Euro</option>
+                    <option value="gbp">GBP - British Pound</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="card-element">Card Details</label>
+                <div id="card-element"></div>
+            </div>
+
+            <button type="submit" id="submit-button">Deposit Now</button>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Processing payment...</p>
+            </div>
+
+            <div id="error-message" class="error"></div>
+            <div id="success-message" class="success"></div>
+        </form>
+    </div>
+
+    <script>
+        // Replace with your Stripe publishable key
+        const stripe = Stripe('pk_test_51T4IYRCnwUqjtUZbXhyXt8aflzXfwhEWESjPGk7wCJzG5ccsoeZaJUuGoTFF65PAWakgLbKo2glOJ92xarZqC19E00B3272aNl');
+        const elements = stripe.elements();
+        const cardElement = elements.create('card', {
+            style: {
+                base: {
+                    fontSize: '16px',
+                    color: '#333',
+                    '::placeholder': {
+                        color: '#aab7c4',
+                    },
+                },
+            },
+        });
+        cardElement.mount('#card-element');
+
+        const form = document.getElementById('payment-form');
+        const submitButton = document.getElementById('submit-button');
+        const errorMessage = document.getElementById('error-message');
+        const successMessage = document.getElementById('success-message');
+        const loading = document.getElementById('loading');
+
+        // Get JWT token from localStorage (you need to store it after login)
+        const token = localStorage.getItem('jwtToken');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const amount = parseFloat(document.getElementById('amount').value);
+            const currency = document.getElementById('currency').value;
+
+            if (!token) {
+                errorMessage.textContent = 'Please login first';
+                return;
+            }
+
+            submitButton.disabled = true;
+            loading.style.display = 'block';
+            errorMessage.textContent = '';
+            successMessage.textContent = '';
+
+            try {
+                // Create payment intent
+                const response = await fetch('http://localhost:8080/api/payments/create-payment-intent', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ amount, currency })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Payment failed');
+                }
+
+                // Confirm payment with Stripe
+                const { error, paymentIntent } = await stripe.confirmCardPayment(data.clientSecret, {
+                    payment_method: {
+                        card: cardElement,
+                    }
+                });
+
+                if (error) {
+                    throw new Error(error.message);
+                }
+
+                // Confirm payment on backend
+                await fetch(`http://localhost:8080/api/payments/confirm/${paymentIntent.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                successMessage.textContent = `✓ Payment successful! Deposited ${amount} ${currency.toUpperCase()}`;
+                form.reset();
+
+            } catch (error) {
+                errorMessage.textContent = error.message;
+            } finally {
+                submitButton.disabled = false;
+                loading.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
