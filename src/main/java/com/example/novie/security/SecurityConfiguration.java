@@ -36,7 +36,8 @@ public class SecurityConfiguration {
                                 "/auth/users/login",
                                 "/auth/users/register",
                                 "/auth/users/resetPassword",
-                                "auth/users/register/verify"
+                                "auth/users/register/verify",
+                                "/api/crypto/**"
 
                         ).permitAll()
                         .anyRequest().authenticated()
