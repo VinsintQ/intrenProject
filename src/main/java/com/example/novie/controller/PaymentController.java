@@ -1,18 +1,20 @@
 package com.example.novie.controller;
 
 import com.example.novie.model.Deposit;
+import com.example.novie.model.User;
 import com.example.novie.model.request.DepositRequest;
-import com.example.novie.model.response.PaymentIntentResponse;
+import com.example.novie.repository.UserRepository;
 import com.example.novie.security.MyUserDetails;
 import com.example.novie.service.PaymentService;
-import com.stripe.exception.StripeException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping(path = "/api/payments")
@@ -21,41 +23,44 @@ public class PaymentController {
     @Autowired
     private PaymentService paymentService;
 
-    @PostMapping("/create-payment-intent")
-    public ResponseEntity<?> createPaymentIntent(@RequestBody DepositRequest request) {
-        try {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            MyUserDetails userDetails = (MyUserDetails) authentication.getPrincipal();
+    @Autowired
+    private UserRepository userRepository;
 
-            PaymentIntentResponse response = paymentService.createPaymentIntent(
-                    userDetails.getUser(), 
-                    request
-            );
-
-            return ResponseEntity.ok(response);
-        } catch (StripeException e) {
-            return ResponseEntity.badRequest()
-                    .body("Payment processing error: " + e.getMessage());
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication.getPrincipal();
+        
+        if (principal instanceof MyUserDetails) {
+            return ((MyUserDetails) principal).getUser();
+        } else if (principal instanceof String) {
+            return userRepository.findUserByEmailAddress((String) principal);
         }
+        throw new RuntimeException("Unable to get current user");
     }
 
-    @PostMapping("/confirm/{paymentIntentId}")
-    public ResponseEntity<?> confirmPayment(@PathVariable String paymentIntentId) {
+    @PostMapping("/deposit")
+    public ResponseEntity<?> createDeposit(@RequestBody DepositRequest request) {
         try {
-            Deposit deposit = paymentService.confirmPayment(paymentIntentId);
-            return ResponseEntity.ok(deposit);
+            User user = getCurrentUser();
+            Deposit deposit = paymentService.createVirtualDeposit(user, request);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("deposit", deposit);
+            response.put("newBalance", user.getBalance());
+            response.put("message", "Deposit successful!");
+
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest()
-                    .body("Error confirming payment: " + e.getMessage());
+                    .body("Deposit failed: " + e.getMessage());
         }
     }
 
     @GetMapping("/deposits")
     public ResponseEntity<List<Deposit>> getUserDeposits() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        MyUserDetails userDetails = (MyUserDetails) authentication.getPrincipal();
-
-        List<Deposit> deposits = paymentService.getUserDeposits(userDetails.getUser());
+        User user = getCurrentUser();
+        List<Deposit> deposits = paymentService.getUserDeposits(user);
         return ResponseEntity.ok(deposits);
     }
 
@@ -66,6 +71,24 @@ public class PaymentController {
             return ResponseEntity.ok(deposit);
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PostMapping("/reset-balance")
+    public ResponseEntity<?> resetBalance() {
+        try {
+            User user = getCurrentUser();
+            User updatedUser = paymentService.resetBalance(user);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("balance", updatedUser.getBalance());
+            response.put("message", "Balance reset to 0");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body("Reset failed: " + e.getMessage());
         }
     }
 }
