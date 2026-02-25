@@ -31,18 +31,28 @@ public class CryptoTradingService {
 
     @Transactional
     public CryptoTransaction buyCrypto(User user, String cryptoId, Double quantity) {
+        System.out.println("Attempting to buy crypto: " + cryptoId + ", quantity: " + quantity);
+        
         // Get current price
         CryptoCurrency crypto = cryptoService.getCryptocurrencyById(cryptoId);
         if (crypto == null) {
-            throw new RuntimeException("Cryptocurrency not found");
+            System.err.println("Cryptocurrency not found: " + cryptoId);
+            throw new RuntimeException("Cryptocurrency not found: " + cryptoId);
         }
 
+        System.out.println("Found crypto: " + crypto.getName() + " at price: $" + crypto.getCurrentPrice());
+
         Double pricePerUnit = crypto.getCurrentPrice();
+        if (pricePerUnit == null || pricePerUnit <= 0) {
+            throw new RuntimeException("Invalid cryptocurrency price");
+        }
+        
         Double totalCost = pricePerUnit * quantity;
+        System.out.println("Total cost: $" + totalCost + ", User balance: $" + user.getBalance());
 
         // Check if user has enough balance
         if (user.getBalance() < totalCost) {
-            throw new RuntimeException("Insufficient balance");
+            throw new RuntimeException("Insufficient balance. Required: $" + totalCost + ", Available: $" + user.getBalance());
         }
 
         // Deduct from user balance
@@ -79,6 +89,7 @@ public class CryptoTradingService {
         transaction.setPricePerUnit(pricePerUnit);
         transaction.setTotalAmount(totalCost);
 
+        System.out.println("Purchase successful!");
         return transactionRepository.save(transaction);
     }
 
