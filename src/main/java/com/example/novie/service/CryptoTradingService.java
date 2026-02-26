@@ -1,5 +1,12 @@
 package com.example.novie.service;
 
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.example.novie.model.CryptoCurrency;
 import com.example.novie.model.CryptoHolding;
 import com.example.novie.model.CryptoTransaction;
@@ -7,12 +14,6 @@ import com.example.novie.model.User;
 import com.example.novie.repository.CryptoHoldingRepository;
 import com.example.novie.repository.CryptoTransactionRepository;
 import com.example.novie.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.Optional;
 
 @Service
 public class CryptoTradingService {
@@ -143,5 +144,82 @@ public class CryptoTradingService {
 
     public List<CryptoTransaction> getUserTransactions(User user) {
         return transactionRepository.findByUserOrderByCreatedAtDesc(user);
+    }
+
+    // Methods for limit order execution
+    @Transactional
+    public void executeBuyForLimitOrder(User user, String cryptoId, Double quantity, Double price) {
+        // Funds already reserved, just execute the trade
+        CryptoCurrency crypto = cryptoService.getCryptocurrencyById(cryptoId);
+        if (crypto == null) {
+            throw new RuntimeException("Cryptocurrency not found");
+        }
+
+        // Update or create holding
+        Optional<CryptoHolding> existingHolding = holdingRepository.findByUserAndCryptoId(user, cryptoId);
+        CryptoHolding holding;
+
+        if (existingHolding.isPresent()) {
+            holding = existingHolding.get();
+            Double totalQuantity = holding.getQuantity() + quantity;
+            Double totalValue = (holding.getQuantity() * holding.getAverageBuyPrice()) + (quantity * price);
+            holding.setAverageBuyPrice(totalValue / totalQuantity);
+            holding.setQuantity(totalQuantity);
+        } else {
+            holding = new CryptoHolding();
+            holding.setUser(user);
+            holding.setCryptoId(cryptoId);
+            holding.setCryptoSymbol(crypto.getSymbol().toUpperCase());
+            holding.setQuantity(quantity);
+            holding.setAverageBuyPrice(price);
+        }
+        holdingRepository.save(holding);
+
+        // Create transaction record
+        CryptoTransaction transaction = new CryptoTransaction();
+        transaction.setUser(user);
+        transaction.setType("BUY");
+        transaction.setCryptoId(cryptoId);
+        transaction.setCryptoSymbol(crypto.getSymbol().toUpperCase());
+        transaction.setQuantity(quantity);
+        transaction.setPricePerUnit(price);
+        transaction.setTotalAmount(quantity * price);
+        transactionRepository.save(transaction);
+    }
+
+    @Transactional
+    public void executeSellForLimitOrder(User user, String cryptoId, Double quantity, Double price) {
+        CryptoHolding holding = holdingRepository.findByUserAndCryptoId(user, cryptoId)
+                .orElseThrow(() -> new RuntimeException("You don't own this cryptocurrency"));
+
+        if (holding.getQuantity() < quantity) {
+            throw new RuntimeException("Insufficient crypto balance");
+        }
+
+        CryptoCurrency crypto = cryptoService.getCryptocurrencyById(cryptoId);
+        Double totalRevenue = price * quantity;
+
+        // Add to user balance
+        user.setBalance(user.getBalance() + totalRevenue);
+        userRepository.save(user);
+
+        // Update holding
+        holding.setQuantity(holding.getQuantity() - quantity);
+        if (holding.getQuantity() == 0) {
+            holdingRepository.delete(holding);
+        } else {
+            holdingRepository.save(holding);
+        }
+
+        // Create transaction record
+        CryptoTransaction transaction = new CryptoTransaction();
+        transaction.setUser(user);
+        transaction.setType("SELL");
+        transaction.setCryptoId(cryptoId);
+        transaction.setCryptoSymbol(crypto.getSymbol().toUpperCase());
+        transaction.setQuantity(quantity);
+        transaction.setPricePerUnit(price);
+        transaction.setTotalAmount(totalRevenue);
+        transactionRepository.save(transaction);
     }
 }

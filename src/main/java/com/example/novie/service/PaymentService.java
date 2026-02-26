@@ -1,15 +1,16 @@
 package com.example.novie.service;
 
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import com.example.novie.model.Deposit;
 import com.example.novie.model.User;
 import com.example.novie.model.request.DepositRequest;
 import com.example.novie.repository.DepositRepository;
 import com.example.novie.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.UUID;
 
 @Service
 public class PaymentService {
@@ -37,7 +38,7 @@ public class PaymentService {
     }
 
     public List<Deposit> getUserDeposits(User user) {
-        return depositRepository.findByUser(user);
+        return depositRepository.findByUserOrderByCreatedAtDesc(user);
     }
 
     public Deposit getDepositById(Long id) {
