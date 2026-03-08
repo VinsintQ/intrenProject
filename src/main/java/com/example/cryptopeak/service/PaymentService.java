@@ -1,0 +1,53 @@
+package com.example.cryptopeak.service;
+
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.example.cryptopeak.model.Deposit;
+import com.example.cryptopeak.model.User;
+import com.example.cryptopeak.model.request.DepositRequest;
+import com.example.cryptopeak.repository.DepositRepository;
+import com.example.cryptopeak.repository.UserRepository;
+
+@Service
+public class PaymentService {
+
+    @Autowired
+    private DepositRepository depositRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    public Deposit createVirtualDeposit(User user, DepositRequest request) {
+        // Create virtual deposit (no real payment processing)
+        Deposit deposit = new Deposit();
+        deposit.setUser(user);
+        deposit.setAmount(request.getAmount());
+        deposit.setCurrency(request.getCurrency());
+        deposit.setStatus("COMPLETED");
+        deposit.setPaymentIntentId("VIRTUAL-" + UUID.randomUUID().toString());
+        
+        // Immediately add to user balance
+        user.setBalance(user.getBalance() + request.getAmount());
+        userRepository.save(user);
+        
+        return depositRepository.save(deposit);
+    }
+
+    public List<Deposit> getUserDeposits(User user) {
+        return depositRepository.findByUserOrderByCreatedAtDesc(user);
+    }
+
+    public Deposit getDepositById(Long id) {
+        return depositRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Deposit not found"));
+    }
+
+    public User resetBalance(User user) {
+        user.setBalance(0.0);
+        return userRepository.save(user);
+    }
+}
