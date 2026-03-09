@@ -1,6 +1,6 @@
 HELP.md
 target/
-.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
@@ -32,4 +32,13 @@ build/
 ### VS Code ###
 .vscode/
 
-/src/main/resources/application-dev.properties
+### SQLite Database Files ###
+*.db
+*.db-shm
+*.db-wal
+cryptopeak*.db*
+
+### Environment Files ###
+.env
+.env.local
+.env.production
