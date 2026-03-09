@@ -64,7 +64,8 @@ public class UserService {
 
     // ================= LOGIN =================
     public ResponseEntity<?> loginUser(LoginRequest loginRequest) {
-
+        System.out.println("Login attempt for email: " + loginRequest.getEmail());
+        
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
@@ -72,6 +73,7 @@ public class UserService {
                             loginRequest.getPassword()
                     )
             );
+            System.out.println("Authentication successful for: " + loginRequest.getEmail());
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             myUserDetails = (MyUserDetails) authentication.getPrincipal();
@@ -86,6 +88,8 @@ public class UserService {
             return ResponseEntity.ok(new LoginResponse(JWT));
 
         } catch (Exception e) {
+            System.out.println("Login failed for email: " + loginRequest.getEmail());
+            System.out.println("Error: " + e.getMessage());
             return ResponseEntity.badRequest()
                     .body(new LoginResponse("Error: Username or password is incorrect"));
         }

@@ -15,8 +15,8 @@ public class CryptoHistoryController {
 
     @GetMapping("/{cryptoId}")
     public ResponseEntity<?> getHistory(
-            @PathVariable String cryptoId,
-            @RequestParam(defaultValue = "7") int days) {
+            @PathVariable(name = "cryptoId") String cryptoId,
+            @RequestParam(name = "days", defaultValue = "7") int days) {
         
         System.out.println("Fetching " + days + " days history for " + cryptoId);
         
