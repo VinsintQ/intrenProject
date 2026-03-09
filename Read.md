@@ -6,4 +6,4 @@
 
 - view past transaction
 
-- 
+- add limit orders
