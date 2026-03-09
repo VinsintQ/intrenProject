@@ -21,7 +21,7 @@ public class CryptoController {
 
     @GetMapping("/top")
     public ResponseEntity<List<CryptoCurrency>> getTopCryptocurrencies(
-            @RequestParam(defaultValue = "10") int limit) {
+            @RequestParam(name = "limit", defaultValue = "10") int limit) {
         
         System.out.println("Fetching top " + limit + " cryptocurrencies");
         List<CryptoCurrency> cryptos = cryptoService.getTopCryptocurrencies(limit);
