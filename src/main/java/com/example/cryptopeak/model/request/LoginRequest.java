@@ -1,10 +1,9 @@
 package com.example.cryptopeak.model.request;
 
-import lombok.Getter;
+import lombok.Data;
 
-@Getter
+@Data
 public class LoginRequest {
     private String email;
     private String password;
-
 }
