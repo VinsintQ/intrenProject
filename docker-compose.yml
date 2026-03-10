@@ -1,0 +1,38 @@
+services:
+  cryptopeak-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cryptopeak-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - DB_PATH=/app/data/cryptopeak.db
+      - JWT_SECRET=${JWT_SECRET:-changeThisSecretInProduction}
+      - JWT_EXPIRATION_MS=86400000
+      - LOG_PATH=/app/logs/application.log
+    volumes:
+      # Persist database
+      - cryptopeak-data:/app/data
+      # Persist logs
+      - cryptopeak-logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - cryptopeak-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  cryptopeak-data:
+    driver: local
+  cryptopeak-logs:
+    driver: local
+
+networks:
+  cryptopeak-network:
+    driver: bridge

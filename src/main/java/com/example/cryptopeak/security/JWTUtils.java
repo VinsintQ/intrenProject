@@ -2,9 +2,11 @@ package com.example.cryptopeak.security;
 
 
 import io.jsonwebtoken.*;
+import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -19,22 +21,34 @@ public class JWTUtils {
     @Value("${jwt-expiration-ms}")
     private int jwtExpirationMs;
 
+    private SecretKey getSigningKey() {
+        // Ensure the secret is at least 256 bits (32 bytes)
+        byte[] secretBytes = jwtSecret.getBytes();
+        if (secretBytes.length < 32) {
+            // Pad the secret to 32 bytes if it's too short
+            byte[] paddedSecret = new byte[32];
+            System.arraycopy(secretBytes, 0, paddedSecret, 0, secretBytes.length);
+            return Keys.hmacShaKeyFor(paddedSecret);
+        }
+        return Keys.hmacShaKeyFor(secretBytes);
+    }
+
     public String generateJwtToken(MyUserDetails myUserDetails) {
         return Jwts.builder()
                 .setSubject((myUserDetails.getUsername()))
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-                .signWith(SignatureAlgorithm.HS256, jwtSecret.getBytes())
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
     public String getUserNameFromJwtToken(String token) {
-        return Jwts.parserBuilder().setSigningKey(jwtSecret.getBytes()).build().parseClaimsJws(token).getBody().getSubject();
+        return Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(token).getBody().getSubject();
     }
 
     public boolean validateJwtToken(String authToken) {
         try {
-            Jwts.parserBuilder().setSigningKey(jwtSecret.getBytes()).build().parseClaimsJws(authToken);
+            Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(authToken);
             return true;
         } catch (SecurityException e) {
             logger.log(Level.SEVERE, "Invalid JWT signature: {0}", e.getMessage());
